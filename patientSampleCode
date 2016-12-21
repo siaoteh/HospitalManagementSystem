@@ -1,0 +1,45 @@
+ Sample Code:
+
+\\whn user click submit button
+                    
+                    int idcheck = loginIDCheck();
+                    if (idcheck > 0)
+                    {
+                            DataSave();\\save all data to db
+                            \\ and rest all field 
+                    }
+                }
+                else
+                {
+                    MessageBox.Show("Please check nessary field")
+                }
+            }
+
+
+
+\\Login ID checking 
+ SqlConnection conDb;
+            string conString = ConfigurationManager.ConnectionStrings["DatabaseConn"].ConnectionString;
+            conDatabase = new SqlConnection(conString);
+            conDb.Open();
+            string strCommand;
+            SqlCommand cmdCheck;
+            strCommand = "Select * From LOGIN TABLE Where LoginID = Entered_LoginID";
+            strCommand = new SqlCommand(strCheck, conDatabase);
+            strCommand.Parameters.AddWithValue("@LoginID",tbLoginId.Text);
+            SqlDataReader dtr;
+            dtr = cmdCheck.ExecuteReader();
+            if (dtr.Read())
+            {
+                MessageBox.Show("Login ID exsist, try again")
+                conDb.Close();
+                dtr.Close();
+                return 0;
+                 else
+            {
+                conDb.Close();
+                dtr.Close();
+                return 1;
+            }
+                
+                
