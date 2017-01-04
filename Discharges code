@@ -1,0 +1,294 @@
+namespace HMS
+{
+    public partial class DichargeByDoctor : System.Web.UI.Page
+    {
+        static int count = 0;
+        protected void Page_Load(object sender, EventArgs e)
+        {
+            if (!IsPostBack)
+            {
+                SqlConnection conDischarge;
+                string connStr = ConfigurationManager.ConnectionStrings["HMS"].ConnectionString;
+                conDischarge = new SqlConnection(connStr);
+                conDischarge.Open();
+
+                string strRetrieve = "";
+                SqlCommand cmdRetrieve;
+                strRetrieve = "SELECT AdmissionDate as 'Admission Date', Visitation.PatientID as"+
+                    " 'Patient ID', PatientName as 'Patient Name', MedicalCondition as 'Medical Condition'"+
+                    " FROM Admission, Visitation, Patient WHERE Admission.VisitationID ="+
+                    " Visitation.VisitationID AND Visitation.PatientID = Patient.PatientID AND" +
+                    " AdmissionStatus = 'Admitted' AND convert(varchar(10),DATEADD(day, NoOfDaysStay+ISNULL(ExtraDaysStay,0),"+
+                    " convert(datetime,AdmissionDate,103)),103) = convert(varchar(10),getdate(),103)";
+
+                cmdRetrieve = new SqlCommand(strRetrieve, conDischarge);
+                SqlDataReader dtr;
+                dtr = cmdRetrieve.ExecuteReader();
+                
+                if (dtr.HasRows)
+                {                                          
+                    GridView1.DataSource = dtr;
+                    GridView1.DataBind();                    
+                }
+                else
+                {
+                    lblDisplay.Text = "There are no more list of discharge for today.";
+                }
+                dtr.Close();
+                conDischarge.Close();   
+            }            
+        }
+
+        protected void GridView1_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            DetailsView1.DataSource = null;
+            DetailsView1.DataBind();
+
+            SqlConnection conDischarge;
+            string connStr = ConfigurationManager.ConnectionStrings["HMS"].ConnectionString;
+            conDischarge = new SqlConnection(connStr);
+            conDischarge.Open();
+
+            string strRetrieve = "";
+            SqlCommand cmdRetrieve;
+            
+            strRetrieve = "SELECT SymptomHistory.PatientID as 'Patient ID', PatientName as 'Patient Name',"+
+                " MedicalCondition as 'Medical Condition', RecordDate as 'Record Date',"+
+                " SymptomHistoryDetails as 'Symptom History Details' FROM Patient, Visitation,"+
+                " SymptomHistory WHERE Visitation.PatientID = Patient.PatientID AND"+
+                " SymptomHistory.PatientID = Patient.PatientID AND SymptomHistory.PatientID ="+
+                " '" + GridView1.SelectedRow.Cells[2].Text + "' AND VisitationID = (SELECT max(VisitationID) FROM Visitation WHERE PatientID = '" + GridView1.SelectedRow.Cells[2].Text + "')" +
+                " AND SymptomHistoryNo = (SELECT max(SymptomHistoryNo) FROM SymptomHistory WHERE"+
+                " PatientID = '"+GridView1.SelectedRow.Cells[2].Text+"' AND (RecordDate >= '"+GridView1.SelectedRow.Cells[1].Text+"'))";
+            
+            cmdRetrieve = new SqlCommand(strRetrieve, conDischarge);
+            SqlDataReader dtr;
+            dtr = cmdRetrieve.ExecuteReader();
+            
+            if (dtr.HasRows)
+            {
+                DetailsView1.DataSource = dtr;
+                DetailsView1.DataBind();
+            }
+            else
+            {
+                MessageBox.Show("No symptom history of patient.", "WARNING", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+            }
+            dtr.Close();
+            conDischarge.Close();   
+        }
+
+        protected void DetailsView1_ItemDeleting(object sender, DetailsViewDeleteEventArgs e)
+        {
+            lblExtraDays.Visible = true;
+            txtExtraDays.Visible = true;
+            btnSave.Visible = true;           
+        }
+
+        protected void btnSave_Click(object sender, EventArgs e)
+        {
+            if (txtExtraDays.Text == "" || txtExtraDays.Text == String.Empty)
+            {                
+                MessageBox.Show("Please specify the extra days.", "WARNING", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+            }
+            else
+            {
+                int number;
+                if (txtExtraDays.Text != "" || txtExtraDays.Text != String.Empty)
+                {
+                    bool result = Int32.TryParse(txtExtraDays.Text, out number);
+                    if (!result)
+                    {
+                        MessageBox.Show("Extra days value is not numeric!", "WARNING", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+                    }
+                    else
+                    {
+                        count += 1;
+                        SqlConnection conAdmission;
+                        string connStr = ConfigurationManager.ConnectionStrings["HMS"].ConnectionString;
+                        conAdmission = new SqlConnection(connStr);
+                        conAdmission.Open();
+                        ////////////////get Approval last primary key///////////////////
+                        string strRetrieve = "";
+                        SqlCommand cmdRetrieve;
+
+                        strRetrieve = "SELECT max(ApprovalNo) as ApprovalNo FROM Approval";
+                        cmdRetrieve = new SqlCommand(strRetrieve, conAdmission);
+
+                        SqlDataReader dtr;
+                        dtr = cmdRetrieve.ExecuteReader();
+                        int id = 0;
+                        if (dtr.Read())
+                        {
+                            id = Convert.ToInt32(dtr["ApprovalNo"]);
+                            id += 1;
+                            dtr.Close();
+                        }
+                        //------------------------------------------------------------//
+                        /////////////update ExtraDaysStay in Admission table////////////
+                        string strUpdate = "";
+                        SqlCommand cmdUpdate;
+
+                        strUpdate = "UPDATE Admission SET ExtraDaysStay= '" + Convert.ToInt32(txtExtraDays.Text) + "'" +
+                            " WHERE VisitationID = (SELECT max(VisitationID) FROM Visitation WHERE PatientID =" +
+                            " '" + GridView1.SelectedRow.Cells[2].Text + "')";
+
+                        cmdUpdate = new SqlCommand(strUpdate, conAdmission);
+
+                        int n = cmdUpdate.ExecuteNonQuery();
+
+                        if (n > 0)
+                        {
+                            MessageBox.Show("Extra days recorded.", "INFORMATION", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        }
+                        else
+                        {
+                            MessageBox.Show("Extra days fail to be recorded.", "ERROR", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        }
+                        //-------------------------------------------------------------//
+                        //////////////////////////get SymptomHistoryNo///////////////////
+                        string strRetrieve2 = "";
+                        SqlCommand cmdRetrieve2;
+
+                        strRetrieve2 = "SELECT max(SymptomHistoryNo) as SymptomHistoryNo FROM SymptomHistory WHERE"+
+                            " PatientID = '"+GridView1.SelectedRow.Cells[2].Text+"'";
+
+                        cmdRetrieve2 = new SqlCommand(strRetrieve2, conAdmission);
+                        SqlDataReader dtr2;
+                        dtr2 = cmdRetrieve2.ExecuteReader();
+                        int symptomHistoryNo = 0;
+                        if(dtr2.Read()){
+                            symptomHistoryNo = Convert.ToInt32(dtr2["SymptomHistoryNo"]);
+                            dtr2.Close();
+                        }
+                        //-------------------------------------------------------------//
+                        /////////////////////insert into Approval table//////////////////
+                        string strInsert = "";
+                        SqlCommand cmdInsert;
+
+                        strInsert = "INSERT INTO Approval(ApprovalNo, ApprovalDate, ApprovalStatus,"+
+                            " SymptomHistoryNo) VALUES (@id, @date, @status, @SymptomHistoryNo)";
+                        
+                        cmdInsert = new SqlCommand(strInsert, conAdmission);
+
+                        cmdInsert.Parameters.AddWithValue("@id", id);
+                        cmdInsert.Parameters.AddWithValue("@date", DateTime.Now.ToShortDateString());
+                        cmdInsert.Parameters.AddWithValue("@status", "Rejected");
+                        cmdInsert.Parameters.AddWithValue("@SymptomHistoryNo", symptomHistoryNo);
+
+                        int n2 = cmdInsert.ExecuteNonQuery();
+                        if (n2 > 0)
+                        {
+                            MessageBox.Show("Approval status is successfully recorded.", "INFORMATION", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        }
+                        else
+                        {
+                            MessageBox.Show("Approval status fail to be recorded.", "ERROR", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        }
+                        //-------------------------------------------------------------//
+                        GridView1.Rows[GridView1.SelectedIndex].Visible = false;
+                        DetailsView1.DataSource = null;
+                        DetailsView1.DataBind();
+                        lblExtraDays.Visible = false;
+                        txtExtraDays.Text = "";
+                        txtExtraDays.Visible = false;
+                        btnSave.Visible = false;
+                        int row = GridView1.Rows.Count - count;
+                        if (row == 0)
+                        {
+                            GridView1.DataSource = null;
+                            GridView1.DataBind();
+                            lblDisplay.Text = "There are no more list of discharge for today.";
+                            count = 0;
+                        }                        
+                        conAdmission.Close();
+                    }
+                }                
+            }            
+        }
+
+        protected void DetailsView1_ModeChanging(object sender, DetailsViewModeEventArgs e)
+        {
+            count += 1;
+            SqlConnection conAdmission;
+            string connStr = ConfigurationManager.ConnectionStrings["HMS"].ConnectionString;
+            conAdmission = new SqlConnection(connStr);
+            conAdmission.Open();
+
+            ////////////////get Approval last primary key///////////////////
+            string strRetrieve = "";
+            SqlCommand cmdRetrieve;
+
+            strRetrieve = "SELECT max(ApprovalNo) as ApprovalNo FROM Approval";
+            cmdRetrieve = new SqlCommand(strRetrieve, conAdmission);
+
+            SqlDataReader dtr;
+            dtr = cmdRetrieve.ExecuteReader();
+            int id = 0;
+            if (dtr.Read())
+            {
+                id = Convert.ToInt32(dtr["ApprovalNo"]);
+                id += 1;
+                dtr.Close();
+            }
+            //------------------------------------------------------------//
+            //////////////////////////get SymptomHistoryNo///////////////////
+            string strRetrieve2 = "";
+            SqlCommand cmdRetrieve2;
+
+            strRetrieve2 = "SELECT max(SymptomHistoryNo) as SymptomHistoryNo FROM SymptomHistory WHERE" +
+                " PatientID = '" + GridView1.SelectedRow.Cells[2].Text + "'";
+
+            cmdRetrieve2 = new SqlCommand(strRetrieve2, conAdmission);
+            SqlDataReader dtr2;
+            dtr2 = cmdRetrieve2.ExecuteReader();
+            int symptomHistoryNo = 0;
+            if (dtr2.Read())
+            {
+                symptomHistoryNo = Convert.ToInt32(dtr2["SymptomHistoryNo"]);
+                dtr2.Close();
+            }
+            //-------------------------------------------------------------//
+            /////////////////////insert into Approval table//////////////////
+            string strInsert = "";
+            SqlCommand cmdInsert;
+
+            strInsert = "INSERT INTO Approval(ApprovalNo, ApprovalDate, ApprovalStatus," +
+                " SymptomHistoryNo) VALUES (@id, @date, @status, @SymptomHistoryNo)";
+
+            cmdInsert = new SqlCommand(strInsert, conAdmission);
+
+            cmdInsert.Parameters.AddWithValue("@id", id);
+            cmdInsert.Parameters.AddWithValue("@date", DateTime.Now.ToShortDateString());
+            cmdInsert.Parameters.AddWithValue("@status", "Approved");
+            cmdInsert.Parameters.AddWithValue("@SymptomHistoryNo", symptomHistoryNo);
+
+            int n2 = cmdInsert.ExecuteNonQuery();
+            if (n2 > 0)
+            {
+                MessageBox.Show("Approval status is successfully recorded.", "INFORMATION", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            else
+            {
+                MessageBox.Show("Approval status fail to be recorded.", "ERROR", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            //-------------------------------------------------------------//
+            GridView1.Rows[GridView1.SelectedIndex].Visible = false;
+            DetailsView1.DataSource = null;
+            DetailsView1.DataBind();
+            lblExtraDays.Visible = false;
+            txtExtraDays.Text = "";
+            txtExtraDays.Visible = false;
+            btnSave.Visible = false;
+            int row = GridView1.Rows.Count - count;
+            if (row == 0)
+            {
+                GridView1.DataSource = null;
+                GridView1.DataBind();
+                lblDisplay.Text = "There are no more list of discharge for today.";
+                count = 0;
+            }
+            conAdmission.Close();
+        }
+    }
+}
