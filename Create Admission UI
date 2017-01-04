@@ -1,0 +1,112 @@
+<%@ Page Language="C#" MasterPageFile="~/MasterPage.Master" AutoEventWireup="true" CodeBehind="CreateAdmission.aspx.cs" Inherits="HMS.CreateAdmission" %>
+<asp:Content ID="Content1" ContentPlaceHolderID="head" runat="server">
+</asp:Content>
+<asp:Content ID="Content2" ContentPlaceHolderID="ContentPlaceHolder1" runat="server">
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+    <style>
+        #one,#two,#three,#four,#five,#six{background-color:#CCFFCC;border-radius:3px;}
+        #tbl{border-style:solid;border-radius:10px;border-width:1px;border-spacing:5px;box-shadow:10px 10px 5px #888888;border-color:#888888}
+        #tbl tr td:first-child{padding-left:5px;}
+    </style>
+    <title></title>
+
+<body>
+
+    <div style="margin-left:500px">
+    <div style="font-size:2em"><strong>Admission</strong></div>
+        <table id="tbl" style="width:45%;">
+            <tr>
+                <td id ="one">Patient ID:</td>
+                <td>
+                    <asp:TextBox ID="txtPatientID" runat="server"></asp:TextBox>
+&nbsp;
+                    <asp:Button ID="btnEnter" runat="server" Text="Enter" OnClick="btnEnter_Click"/>
+                </td>
+            </tr>
+            <tr>
+                <td>Patient Name:</td>
+                <td>
+                    <asp:TextBox ID="txtPatientName" runat="server" Enabled="False"></asp:TextBox>
+                </td>
+            </tr>
+            <tr>
+                <td id ="two">Patient IC:</td>
+                <td>
+                    <asp:TextBox ID="txtPatientIC" runat="server" Enabled="False"></asp:TextBox>
+                </td>
+            </tr>
+            <tr>
+                <td>Patient Contact No.:</td>
+                <td>
+                    <asp:TextBox ID="txtPatientContactNo" runat="server" Enabled="False" TextMode="Phone"></asp:TextBox>
+                </td>
+            </tr>
+            <tr>
+                <td id="three">Medical Condition:</td>
+                <td>
+                    <asp:TextBox ID="txtMedicalCondition" runat="server" Enabled="False"></asp:TextBox>
+                </td>
+            </tr>
+            <tr>
+                <td>Date:</td>
+                <td>
+                    <asp:Calendar ID="Calendar1" runat="server" OnSelectionChanged="Calendar1_SelectionChanged" OnDayRender="Calendar1_DayRender">
+                        <SelectedDayStyle BackColor="#99FFCC" ForeColor="Black" />
+                        <TodayDayStyle BackColor="#999999" />
+                    </asp:Calendar>
+                    <asp:TextBox ID="txtCalendar" runat="server" Enabled="False"></asp:TextBox>
+                    <br />
+                </td>
+            </tr>
+            <tr>
+                <td id ="four">No. of days stay:</td>
+                <td>
+                    <asp:TextBox ID="txtNoOfDaysStay" runat="server"></asp:TextBox>
+                    <asp:Button ID="btnFind" runat="server" Text="Find" OnClick="btnFind_Click" Enabled="False" />
+                </td>
+            </tr>
+            <tr>
+                <td>Assign Nurse:</td>
+                <td>
+                    <asp:DropDownList ID="ddlStaff" runat="server">
+                    </asp:DropDownList>
+                </td>
+            </tr>
+            <tr>
+                <td id ="five">Ward Type: </td>
+                <td>
+                    <asp:DropDownList ID="ddlWardType" runat="server" AutoPostBack="True" OnSelectedIndexChanged="ddlWardType_SelectedIndexChanged">
+                    </asp:DropDownList>
+                </td>
+            </tr>
+            <tr>
+                <td>Ward No.:</td>
+                <td>
+                    <asp:TextBox ID="txtWardNo" runat="server" Enabled="False"></asp:TextBox>
+                </td>
+            </tr>
+            <tr>
+                <td id="six">Bed No.:</td>
+                <td>
+                    <asp:DropDownList ID="ddlBedNo" runat="server">
+                    </asp:DropDownList>
+                </td>
+            </tr>
+            <tr>
+                <td>&nbsp;</td>
+                <td>
+                    <asp:Button ID="btnCreateAdmission" runat="server" Text="Create Admission" OnClick="btnCreateAdmission_Click" Enabled="False" />
+&nbsp;
+                    <asp:Button ID="btnReset" runat="server" OnClick="btnReset_Click" Text="Reset" />
+                </td>
+            </tr>
+        </table>
+    
+    </div>
+    <br />
+</body>
+</html>
+</asp:Content>
