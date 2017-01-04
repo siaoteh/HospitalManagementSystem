@@ -1,0 +1,202 @@
+namespace HMS
+{
+    public partial class Today_sAdmission : System.Web.UI.Page
+    {
+        static int count = 0;
+        protected void Page_Load(object sender, EventArgs e)
+        {
+            if (!IsPostBack)
+            {
+                SqlConnection conAdmission;
+                string connStr = ConfigurationManager.ConnectionStrings["HMS"].ConnectionString;
+                conAdmission = new SqlConnection(connStr);
+                conAdmission.Open();
+
+                string strRetrieve = "";
+                SqlCommand cmdRetrieve;
+                strRetrieve = "SELECT PatientID as 'Patient ID', WardType as 'Ward Type', Admission.WardNo as"+
+                    " 'Ward No', BedNo as 'Bed No', NoOfDaysStay as 'Days Stay' FROM Ward, Visitation,"+
+                    " Admission WHERE Admission.VisitationID = Visitation.VisitationID AND Admission.WardNo ="+
+                    " Ward.WardNo AND ReservationDate = @ReserveDate AND AdmissionStatus='Reserved'";
+
+                cmdRetrieve = new SqlCommand(strRetrieve, conAdmission);
+                cmdRetrieve.Parameters.AddWithValue("@ReserveDate", DateTime.Now.ToShortDateString());
+
+                SqlDataReader dtr;
+                dtr = cmdRetrieve.ExecuteReader();
+                if (dtr.HasRows)
+                {
+                    GridView1.DataSource = dtr;
+                    GridView1.DataBind();
+
+                    dtr.Close();
+                    conAdmission.Close();
+                }
+                else
+                {
+                    lblDisplay.Text = "There are no more list of admission for today.";
+                }
+            }
+        }
+
+        protected void GridView1_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            DetailsView1.DataSource = null;
+            DetailsView1.DataBind();
+
+            SqlConnection conAdmission;
+            string connStr = ConfigurationManager.ConnectionStrings["HMS"].ConnectionString;
+            conAdmission = new SqlConnection(connStr);
+            conAdmission.Open();
+
+            string strRetrieve = "";
+            SqlCommand cmdRetrieve;
+            /*strRetrieve = "SELECT PatientName as 'Patient Name', PatientGender as 'PatientGender',"+
+                " PatientIC as 'Patient IC', PatientContactNo as 'Patient Contact No.', MedicalCondition as"+
+                " 'Medical Condition', VisitationDate as 'Date Visited' FROM Visitation, Patient WHERE"+
+                " Visitation.PatientID = Patient.PatientID AND Patient.PatientID ="+
+                " '" + GridView1.SelectedRow.Cells[1].Text + "' AND VisitationID NOT IN"+
+                " (SELECT VisitationID FROM Prescription)";*/
+
+            strRetrieve = "SELECT PatientName as 'Patient Name', PatientGender as 'PatientGender'," +
+                " PatientIC as 'Patient IC', PatientContactNo as 'Patient Contact No.', MedicalCondition as" +
+                " 'Medical Condition', VisitationDate as 'Date Visited' FROM Visitation, Patient WHERE" +
+                " Visitation.PatientID = Patient.PatientID AND Patient.PatientID =" +
+                " '" + GridView1.SelectedRow.Cells[1].Text + "' AND VisitationID =" +
+                " (SELECT max(VisitationID) FROM Visitation WHERE PatientID ='" + GridView1.SelectedRow.Cells[1].Text + "' )";
+
+            cmdRetrieve = new SqlCommand(strRetrieve, conAdmission);
+            
+            SqlDataReader dtr;
+            dtr = cmdRetrieve.ExecuteReader();
+            DetailsView1.DataSource = dtr;
+            DetailsView1.DataBind();
+
+            dtr.Close();
+            conAdmission.Close();
+        }
+
+        protected void DetailsView1_ItemDeleting(object sender, DetailsViewDeleteEventArgs e)
+        {            
+            count += 1;
+            SqlConnection conAdmission;
+            string connStr = ConfigurationManager.ConnectionStrings["HMS"].ConnectionString;
+            conAdmission = new SqlConnection(connStr);
+            conAdmission.Open();
+
+            string strUpdate="";
+            SqlCommand cmdUpdate;
+
+            strUpdate = "UPDATE Admission SET AdmissionStatus= 'Cancelled' WHERE VisitationID ="+
+                "(SELECT max(VisitationID) FROM Visitation WHERE PatientID ='" + GridView1.SelectedRow.Cells[1].Text + "' )";
+
+            cmdUpdate = new SqlCommand(strUpdate, conAdmission);
+         
+            int n = cmdUpdate.ExecuteNonQuery();
+
+            if (n > 0)
+            {
+                MessageBox.Show("Admission is cancelled.", "INFORMATION", MessageBoxButtons.OK,MessageBoxIcon.Information);
+            }
+            else
+            {
+                MessageBox.Show("Admission cancellation failed.", "ERROR", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            GridView1.Rows[GridView1.SelectedIndex].Visible = false;
+            DetailsView1.DataSource = null;
+            DetailsView1.DataBind();
+            int row = GridView1.Rows.Count - count;
+            if (row == 0)
+            {
+                GridView1.DataSource = null;
+                GridView1.DataBind();
+                lblDisplay.Text = "There are no more list of admission for today.";
+                count = 0;
+            }
+            conAdmission.Close();
+
+        }
+
+        protected void DetailsView1_ModeChanging(object sender, DetailsViewModeEventArgs e)
+        {
+            count += 1;
+            SqlConnection conAdmission;
+            string connStr = ConfigurationManager.ConnectionStrings["HMS"].ConnectionString;
+            conAdmission = new SqlConnection(connStr);
+            conAdmission.Open();
+
+            string strUpdate = "";
+            SqlCommand cmdUpdate;
+            ///////////////////////////////////////Update Admission//////////////////////////////////
+            strUpdate = "UPDATE Admission SET AdmissionStatus = 'Admitted', AdmissionDate ="+
+                " '"+DateTime.Now.ToShortDateString()+"' WHERE VisitationID =" +
+                "(SELECT max(VisitationID) FROM Visitation WHERE PatientID ='" + GridView1.SelectedRow.Cells[1].Text + "' )";
+
+            cmdUpdate = new SqlCommand(strUpdate, conAdmission);
+
+            int n = cmdUpdate.ExecuteNonQuery();
+
+            if (n > 0)
+            {
+                MessageBox.Show("Patient is successfully admitted.", "INFORMATION", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            else
+            {
+                MessageBox.Show("Admission failed.", "ERROR", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }            
+            //------------------------------------------------------------------------------------//
+          
+            string strUpdate2 = "";
+            SqlCommand cmdUpdate2;
+            ///////////////////////////////Update Patient Status//////////////////////////////////
+            strUpdate2 = "UPDATE Patient SET PatientStatus = 'Admitted' WHERE PatientID ="+
+                " '" + GridView1.SelectedRow.Cells[1].Text + "'";
+
+            cmdUpdate2 = new SqlCommand(strUpdate2, conAdmission);
+
+            int n2 = cmdUpdate2.ExecuteNonQuery();
+
+            if (n2 > 0)
+            {
+                MessageBox.Show("Patient status is updated.", "INFORMATION", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            else
+            {
+                MessageBox.Show("Patient status update failed.", "ERROR", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            //----------------------------------------------------------------------------------//
+
+            string strUpdate3 = "";
+            SqlCommand cmdUpdate3;
+            //////////////////////////////////Update Bed Status//////////////////////////////////
+            strUpdate3 = "UPDATE Bed SET BedStatus = 'Not available' WHERE BedNo =" +
+                " '" + GridView1.SelectedRow.Cells[4].Text + "'";
+
+            cmdUpdate3 = new SqlCommand(strUpdate3, conAdmission);
+
+            int n3 = cmdUpdate3.ExecuteNonQuery();
+
+            if (n3 > 0)
+            {
+                MessageBox.Show("Bed status is updated.", "INFORMATION", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            else
+            {
+                MessageBox.Show("Bed status update failed.", "ERROR", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            //----------------------------------------------------------------------------------//
+            GridView1.Rows[GridView1.SelectedIndex].Visible = false;
+            DetailsView1.DataSource = null;
+            DetailsView1.DataBind();
+            int row = GridView1.Rows.Count - count;
+            if (row == 0)
+            {
+                GridView1.DataSource = null;
+                GridView1.DataBind();
+                lblDisplay.Text = "There are no more list of admission for today.";
+                count = 0;
+            }            
+            conAdmission.Close();
+        }
+    }
+}
