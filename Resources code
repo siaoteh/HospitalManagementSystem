@@ -1,0 +1,563 @@
+namespace HMS
+{
+    public partial class ResourcesUsed : System.Web.UI.Page
+    {
+        protected void Page_Load(object sender, EventArgs e)
+        {
+            txtDate.Text = DateTime.Now.ToShortDateString();
+        }
+
+        protected void btnReset_Click(object sender, EventArgs e)
+        {
+            txtPatientID.Text = "";
+            txtPatientName.Text = "";
+            txtWardNo.Text = "";
+            txtBedNo.Text = "";
+            txtMedicalCondition.Text = "";
+            txtAdmissionDate.Text = "";
+            txtAdmissionNo.Text = "";
+            ddlResources.Items.Clear();
+            ddlEquipment.Items.Clear();
+            ddlMedicine.Items.Clear();
+            txtQty.Text = "";
+            txtTablet.Text = "";
+            txtTimes.Text = "";
+        }
+
+        protected void btnEnter_Click(object sender, EventArgs e)
+        {
+            ddlResources.Items.Clear();
+            ddlEquipment.Items.Clear();
+            ddlMedicine.Items.Clear();
+            if (txtPatientID.Text == "" || txtPatientID.Text == String.Empty)
+            {
+                MessageBox.Show("Patient ID cannot be null or empty!", "WARNING", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+            }
+            else
+            {
+                ddlResources.AppendDataBoundItems = true;
+                ddlResources.Items.Add(new ListItem("--please select--", "-1"));
+
+                ddlEquipment.AppendDataBoundItems = true;
+                ddlEquipment.Items.Add(new ListItem("--please select--", "-1"));
+
+                ddlMedicine.AppendDataBoundItems = true;
+                ddlMedicine.Items.Add(new ListItem("--please select--", "-1"));
+
+                SqlConnection conPatient;
+                string connStr = ConfigurationManager.ConnectionStrings["HMS"].ConnectionString;
+                conPatient = new SqlConnection(connStr);
+                conPatient.Open();
+
+                /////////////////////////get patient's data/////////////////////////
+                string strRetrieve = "";
+                SqlCommand cmdRetrieve;
+                strRetrieve = "SELECT Visitation.PatientID, PatientName, WardNo, BedNo, MedicalCondition,"+
+                    " AdmissionDate, AdmissionNo FROM Visitation, Admission, Patient WHERE"+
+                    " Visitation.VisitationID = Admission.VisitationID AND Patient.PatientID ="+
+                    " Visitation.PatientID AND AdmissionStatus = 'Admitted' AND Admission.VisitationID ="+
+                    " (SELECT DISTINCT VisitationID FROM Visitation WHERE Visitation.PatientID = @PatientID" +
+                    " AND VisitationID = (SELECT max(VisitationID) FROM Visitation WHERE PatientID = @PatientID))";
+
+                cmdRetrieve = new SqlCommand(strRetrieve, conPatient);
+                cmdRetrieve.Parameters.AddWithValue("@PatientID", txtPatientID.Text);
+                SqlDataReader dtr;
+                dtr = cmdRetrieve.ExecuteReader();
+                //----------------------------------------------------------------//
+                if (dtr.HasRows)
+                {
+                    if (dtr.Read())
+                    {
+                        txtPatientName.Text = "" + dtr["PatientName"];
+                        txtWardNo.Text = "" + dtr["WardNo"];
+                        txtBedNo.Text = "" + dtr["BedNo"];
+                        txtMedicalCondition.Text = "" + dtr["MedicalCondition"];
+                        txtAdmissionDate.Text = "" + dtr["AdmissionDate"];
+                        txtAdmissionNo.Text = "" + dtr["AdmissionNo"];
+                        dtr.Close();
+                        /////////////////////////retrieve resources/////////////////////////
+                        string strRetrieve2 = "";
+                        SqlCommand cmdRetrieve2;
+                        strRetrieve2 = "SELECT * FROM Resource";
+
+                        cmdRetrieve2 = new SqlCommand(strRetrieve2, conPatient);
+                        
+                        SqlDataReader dtr2;
+                        dtr2 = cmdRetrieve2.ExecuteReader();
+                        ddlResources.DataSource = dtr2;
+                        ddlResources.DataTextField = "ResourceType";
+                        ddlResources.DataBind();
+
+                        dtr2.Close();
+                        //----------------------------------------------------------------//
+
+                        /////////////////////////retrieve equipments/////////////////////////
+                        string strRetrieve3 = "";
+                        SqlCommand cmdRetrieve3;
+                        strRetrieve3 = "SELECT * FROM Equipment WHERE EquipmentQty != 0";
+
+                        cmdRetrieve3 = new SqlCommand(strRetrieve3, conPatient);
+
+                        SqlDataReader dtr3;
+                        dtr3 = cmdRetrieve3.ExecuteReader();
+                        ddlEquipment.DataSource = dtr3;
+                        ddlEquipment.DataTextField = "EquipmentName";
+                        ddlEquipment.DataBind();
+
+                        dtr3.Close();
+                        //----------------------------------------------------------------//
+
+                        /////////////////////////retrieve relevant drugs////////////////////
+                        string strRetrieve4 = "";
+                        SqlCommand cmdRetrieve4;
+                        strRetrieve4 = "SELECT DrugName FROM Drug WHERE CategoryID = (SELECT CategoryID FROM Category WHERE CategoryType = '"+txtMedicalCondition.Text+"')"+
+                            " AND DrugStatus = 'Available'";
+                       
+                        cmdRetrieve4 = new SqlCommand(strRetrieve4, conPatient);
+
+                        SqlDataReader dtr4;
+                        dtr4 = cmdRetrieve4.ExecuteReader();
+                        ddlMedicine.DataSource = dtr4;
+                        ddlMedicine.DataTextField = "DrugName";
+                        ddlMedicine.DataBind();
+
+                        dtr4.Close();
+                        //----------------------------------------------------------------//
+                    }
+                }
+                else
+                {/////////////////clear all input///////////////////////                
+                    txtPatientID.Text = "";
+                    txtPatientName.Text = "";                                                          
+                    txtWardNo.Text = "";
+                    txtBedNo.Text = "";
+                    txtMedicalCondition.Text = ""; 
+                    txtAdmissionDate.Text = "";
+                    txtAdmissionNo.Text = "";
+                    ddlEquipment.Items.Clear();
+                    ddlMedicine.Items.Clear();
+                    ddlResources.Items.Clear();
+                //----------------------------------------------------//
+
+                    MessageBox.Show("Patient is not admitted.", "WARNING", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+                }
+                conPatient.Close();
+            }
+        }
+        protected void btnAdd_Click(object sender, EventArgs e)
+        {
+            if (txtPatientID.Text == "" || txtPatientID.Text == String.Empty)
+            {
+                MessageBox.Show("Patient ID cannot be null or empty!", "WARNING", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+            }
+            else if (ddlResources.SelectedItem.Text.Equals("--please select--") && ddlEquipment.SelectedItem.Text.Equals("--please select--") && ddlMedicine.SelectedItem.Text.Equals("--please select--"))
+            {
+                MessageBox.Show("You have not selected any resources.", "WARNING", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+            }
+            else
+            {
+                SqlConnection conResource;
+                string connStr = ConfigurationManager.ConnectionStrings["HMS"].ConnectionString;
+                conResource = new SqlConnection(connStr);
+                conResource.Open();
+                /////////////////////////FOR RESOURCE USED////////////////////////////////
+                if (!ddlResources.SelectedItem.Text.Equals("--please select--"))
+                {
+                    //////////////////get ResourceUtilized table last primary key////////////////
+                    string strRetrieve = "";
+                    SqlCommand cmdRetrieve;
+                    strRetrieve = "SELECT TOP 1 ResourceUtilizedNo FROM ResourceUtilized ORDER BY" +
+                        " ResourceUtilizedNo DESC";
+                    //-------------------------------------------------------------------------//
+                    cmdRetrieve = new SqlCommand(strRetrieve, conResource);
+
+                    SqlDataReader dtr;
+                    dtr = cmdRetrieve.ExecuteReader();
+
+                    if (dtr.Read())
+                    {
+                        int id = Convert.ToInt32(dtr["ResourceUtilizedNo"]);
+                        id += 1;
+                        dtr.Close();
+                        ///////////////////////get id for selected resource///////////////////
+                        string strRetrieve2 = "";
+                        SqlCommand cmdRetrieve2;
+                        strRetrieve2 = "SELECT ResourceNo FROM Resource WHERE ResourceType = " +
+                            " '" + ddlResources.SelectedItem.Text + "'";
+                        //-------------------------------------------------------------------//
+                        cmdRetrieve2 = new SqlCommand(strRetrieve2, conResource);
+
+                        SqlDataReader dtr2;
+                        dtr2 = cmdRetrieve2.ExecuteReader();
+                        if (dtr2.Read())
+                        {
+                            //////////////////////insert into ResourceUtilized table//////////////////
+                            string strInsert;
+                            SqlCommand cmdInsert;
+                            strInsert = "INSERT INTO ResourceUtilized(ResourceUtilizedNo, AdmissionNo, ResourceNo)" +
+                                " VALUES (@id, @AdmissionNo, @ResourceNo)";
+
+                            cmdInsert = new SqlCommand(strInsert, conResource);
+
+                            cmdInsert.Parameters.AddWithValue("@id", id);
+                            cmdInsert.Parameters.AddWithValue("@AdmissionNo", Convert.ToInt32(txtAdmissionNo.Text));
+                            cmdInsert.Parameters.AddWithValue("@ResourceNo", dtr2["ResourceNo"].ToString());
+                            dtr2.Close();
+                            int n = cmdInsert.ExecuteNonQuery();
+                            if (n > 0)
+                            {
+                                MessageBox.Show("Resource used is successfully recorded.", "INFORMATION", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                                ddlResources.SelectedIndex = 0;
+                            }
+                            else
+                            {
+                                MessageBox.Show("Resource used fail to be recorded.", "ERROR", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            }
+                        }                        
+                    }                                   
+                }
+                ////////////////////////////FOR EQUIPMENT USED////////////////////////////////////
+                if (!ddlEquipment.SelectedItem.Text.Equals("--please select--"))
+                {
+                    ////////////////get EquipmentUtilized table last primary key//////////////////
+                    string strRetrieve = "";
+                    SqlCommand cmdRetrieve;
+                    strRetrieve = "SELECT TOP 1 EquipmentUtilizedNo FROM EquipmentUtilized ORDER BY" +
+                        " EquipmentUtilizedNo DESC";
+                    //-------------------------------------------------------------------------//
+                    cmdRetrieve = new SqlCommand(strRetrieve, conResource);
+
+                    SqlDataReader dtr;
+                    dtr = cmdRetrieve.ExecuteReader();
+
+                    if (dtr.Read())
+                    {
+                        int id = Convert.ToInt32(dtr["EquipmentUtilizedNo"]);
+                        id += 1;
+                        dtr.Close();
+                        ///////////////////////get id for selected equipment///////////////////
+                        string strRetrieve2 = "";
+                        SqlCommand cmdRetrieve2;
+                        strRetrieve2 = "SELECT EquipmentID FROM Equipment WHERE EquipmentName = " +
+                            " '" + ddlEquipment.SelectedItem.Text + "'";
+                        //-------------------------------------------------------------------//
+                        cmdRetrieve2 = new SqlCommand(strRetrieve2, conResource);
+
+                        SqlDataReader dtr2;
+                        dtr2 = cmdRetrieve2.ExecuteReader();
+                        if (dtr2.Read())
+                        {
+                            ///////////////////////insert into EquipmentUtilized table////////////////
+                            string strInsert;
+                            SqlCommand cmdInsert;
+                            strInsert = "INSERT INTO EquipmentUtilized(EquipmentUtilizedNo, EquipmentUtilizedDate," +
+                                " AdmissionNo, EquipmentID) VALUES (@EquipmentUtilizedNo, @Date," +
+                                " @AdmissionNo, @EquipmentID)";
+
+                            cmdInsert = new SqlCommand(strInsert, conResource);
+
+                            cmdInsert.Parameters.AddWithValue("@EquipmentUtilizedNo", id);
+                            cmdInsert.Parameters.AddWithValue("@Date", DateTime.Now.ToShortDateString());
+                            cmdInsert.Parameters.AddWithValue("@AdmissionNo", Convert.ToInt32(txtAdmissionNo.Text));
+                            cmdInsert.Parameters.AddWithValue("@EquipmentID", "" + dtr2["EquipmentID"]);
+                            dtr2.Close();
+                            int n = cmdInsert.ExecuteNonQuery();
+                            if (n > 0)
+                            {
+                                MessageBox.Show("Equipment used is successfully recorded.", "INFORMATION", MessageBoxButtons.OK, MessageBoxIcon.Information);                               
+                            }
+                            else
+                            {
+                                MessageBox.Show("Equipment used fail to be recorded.", "ERROR", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            }
+                        }                        
+                    }
+                    /////////////////////////////update equipment quantity//////////////////////
+                    string strUpdate = "";
+                    SqlCommand cmdUpdate;
+                    strUpdate = "UPDATE Equipment SET EquipmentQty = EquipmentQty - 1 WHERE EquipmentName"+
+                        " = '"+ddlEquipment.SelectedItem.Text+"'";
+                    //-------------------------------------------------------------------------//
+                    cmdUpdate = new SqlCommand(strUpdate, conResource);
+
+                    int n2 = cmdUpdate.ExecuteNonQuery();
+                    if (n2 > 0)
+                    {
+                        MessageBox.Show("Equipment quantity is successfully updated.", "INFORMATION", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        ddlEquipment.SelectedIndex = 0;
+                    }
+                    else
+                    {
+                        MessageBox.Show("Equipment quantity fail to be updated.", "ERROR", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                }
+                
+                ////////////////////////////FOR MEDICINE CONSUMED////////////////////////////////////
+                if (!ddlMedicine.SelectedItem.Text.Equals("--please select--"))
+                {
+                    string error = "false";
+                    /////////////////checking error///////////////////////////
+                    if (txtQty.Text == "" || txtQty.Text == String.Empty)
+                    {
+                        error = "true";
+                        MessageBox.Show("Please specify the medicine quantity.", "WARNING", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+                    }
+
+                    if (txtTablet.Text == "" || txtTablet.Text == String.Empty)
+                    {
+                        error = "true";
+                        MessageBox.Show("Please specify the medicine tablet consumption.", "WARNING", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+                    }
+
+                    if (txtTimes.Text == "" || txtTimes.Text == String.Empty)
+                    {
+                        error = "true";
+                        MessageBox.Show("Please specify the medicine consumption times.", "WARNING", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+                    }
+
+                    int number;
+                    if (txtQty.Text != "" || txtQty.Text != String.Empty)
+                    {
+                        try
+                        {
+                            if (Convert.ToInt32(txtQty.Text) < 1)
+                            {
+                                error = "true";
+                                MessageBox.Show("Quantity cannot be less than 1.", "WARNING", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+                            }
+                        }
+                        catch (Exception ex) { }
+                        
+                        bool result = Int32.TryParse(txtQty.Text, out number);
+                        if (!result)
+                        {
+                            error = "true";
+                            MessageBox.Show("Medicine quantity value is not numeric!", "WARNING", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+                        }
+                        //////////////////get available qty of drug///////////////////
+                        string strRetrieve = "";
+                        SqlCommand cmdRetrieve;
+                        strRetrieve = "SELECT DrugQty FROM Drug WHERE DrugName = '" + ddlMedicine.SelectedItem.Text + "'";
+                        cmdRetrieve = new SqlCommand(strRetrieve, conResource);
+                        SqlDataReader dtr;
+                        dtr = cmdRetrieve.ExecuteReader();
+                        if (dtr.Read())
+                        {
+                            try
+                            {
+                                int qty = Convert.ToInt32(dtr["DrugQty"]);
+                                if (Convert.ToInt32(txtQty.Text) > qty)
+                                {
+                                    error = "true";
+                                    MessageBox.Show("Quantity entered not available.", "WARNING", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+                                }
+                                dtr.Close();
+                            }
+                            catch (Exception ex) { }                            
+                        }
+                    }
+                    if (txtTablet.Text != "" || txtTablet.Text != String.Empty)
+                    {
+                        bool result2 = Int32.TryParse(txtTablet.Text, out number);
+                        if (!result2)
+                        {
+                            error = "true";
+                            MessageBox.Show("Medicine tablet value is not numeric!", "WARNING", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+                        }
+                    }
+                    if (txtTimes.Text != "" || txtTimes.Text != String.Empty)
+                    {
+                        bool result3 = Int32.TryParse(txtTimes.Text, out number);
+                        if (!result3)
+                        {
+                            error = "true";
+                            MessageBox.Show("Medicine consumption times value is not numeric!", "WARNING", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+                        }
+                    }
+                    //-------------------------------------------------------------------------------//
+                    if (error.Equals("false"))
+                    {
+                        ///////////////////get Prescription table last primary key/////////////////////////
+                        string strRetrieve = "";
+                        SqlCommand cmdRetrieve;
+                        strRetrieve = "SELECT TOP 1 PrescriptionID FROM Prescription ORDER BY" +
+                            " PrescriptionID DESC";
+                        //-------------------------------------------------------------------------//
+                        cmdRetrieve = new SqlCommand(strRetrieve, conResource);
+
+                        SqlDataReader dtr;
+                        dtr = cmdRetrieve.ExecuteReader();
+
+                        if (dtr.Read())
+                        {
+                            string previousID = "" + dtr["PrescriptionID"];
+                            int previousIDNoPart = Convert.ToInt32(previousID.Substring(3, 5));
+                            int currentIDNoPart = previousIDNoPart + 1;
+                            dtr.Close();                      
+                        
+                            ////////////////////////////get visitationID/////////////////////////
+                            string strRetrieve2 = "";
+                            SqlCommand cmdRetrieve2;
+                            strRetrieve2 = "SELECT VisitationID FROM Visitation WHERE VisitationID =" +
+                                " (SELECT max(VisitationID) FROM Visitation WHERE PatientID =" +
+                                " '" + txtPatientID.Text + "')";
+                            //-------------------------------------------------------------------------//
+                            cmdRetrieve2 = new SqlCommand(strRetrieve2, conResource);
+
+                            SqlDataReader dtr2;
+                            dtr2 = cmdRetrieve2.ExecuteReader();
+                            if (dtr2.Read())
+                            {
+                                ////////////////////////////insert into Prescription table/////////////////////
+                                string strInsert;
+                                SqlCommand cmdInsert;
+                                strInsert = "INSERT INTO Prescription(PrescriptionID, PrescriptionDate," +
+                                        " VisitationID) VALUES (@PrescriptionID, @Date, @VisitationID)";
+
+                                cmdInsert = new SqlCommand(strInsert, conResource);
+
+                                cmdInsert.Parameters.AddWithValue("@PrescriptionID", "PRE" + currentIDNoPart);
+                                cmdInsert.Parameters.AddWithValue("@Date", DateTime.Now.ToShortDateString());
+                                cmdInsert.Parameters.AddWithValue("@VisitationID", dtr2["VisitationID"].ToString());
+                                dtr2.Close();
+                                int n = cmdInsert.ExecuteNonQuery();
+                                if (n > 0)
+                                {
+                                    MessageBox.Show("Prescription added.", "INFORMATION", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                                }
+                                else
+                                {
+                                    MessageBox.Show("Prescription failed to be added.", "ERROR", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                                }
+                                //---------------------------------------------------------------------------//
+                            }                        
+                        }                       
+
+                        //////////////////get PrescriptionDetails table last primary key/////////////
+                        string strRetrieve3 = "";
+                        SqlCommand cmdRetrieve3;
+                        strRetrieve3 = "SELECT TOP 1 PrescriptionDetailsID FROM PrescriptionDetails ORDER BY" +
+                            " PrescriptionDetailsID DESC";
+                        //-------------------------------------------------------------------------//
+                        cmdRetrieve3 = new SqlCommand(strRetrieve3, conResource);
+
+                        SqlDataReader dtr3;
+                        dtr3 = cmdRetrieve3.ExecuteReader();
+                        if (dtr3.Read())
+                        {
+                            string previousID2 = "" + dtr3["PrescriptionDetailsID"];
+                            int previousIDNoPart2 = Convert.ToInt32(previousID2.Substring(3, 5));
+                            int currentIDNoPart2 = previousIDNoPart2 + 1;
+                            dtr3.Close();
+                            //////////////////////////get PrescriptionID///////////////////////////
+                            string strRetrieve4 = "";
+                            SqlCommand cmdRetrieve4;
+                            strRetrieve4 = "SELECT TOP 1 PrescriptionID FROM Prescription ORDER By PrescriptionID" +
+                                " DESC";
+                            //-------------------------------------------------------------------//
+                            cmdRetrieve4 = new SqlCommand(strRetrieve4, conResource);
+
+                            SqlDataReader dtr4;
+                            dtr4 = cmdRetrieve4.ExecuteReader();
+                            if (dtr4.Read())
+                            {
+                                string prescriptionID = dtr4["PrescriptionID"].ToString();
+                                dtr4.Close();
+                                ///////////////////////////get id for selected medicine////////////////
+                                string strRetrieve5 = "";
+                                SqlCommand cmdRetrieve5;
+                                strRetrieve5 = "SELECT DrugID FROM Drug WHERE DrugName = " +
+                                    " '" + ddlMedicine.SelectedItem.Text + "'";
+                                //-------------------------------------------------------------------//
+                                cmdRetrieve5 = new SqlCommand(strRetrieve5, conResource);
+
+                                SqlDataReader dtr5;
+                                dtr5 = cmdRetrieve5.ExecuteReader();
+                                if (dtr5.Read())
+                                {
+                                    ///////////////////insert into PrescriptionDetails table/////////////////////
+                                    string strInsert2;
+                                    SqlCommand cmdInsert2;
+                                    strInsert2 = "INSERT INTO PrescriptionDetails(PrescriptionDetailsID, Qty, Tablet," +
+                                            " Times, PrescriptionID, DrugID) VALUES (@PrescriptionDetailsID, @Qty," +
+                                            " @Tablet, @Times, @PrescriptionID, @DrugID)";
+
+                                    cmdInsert2 = new SqlCommand(strInsert2, conResource);
+
+                                    cmdInsert2.Parameters.AddWithValue("@PrescriptionDetailsID", "PRD" + currentIDNoPart2);
+                                    cmdInsert2.Parameters.AddWithValue("@Qty", Convert.ToInt32(txtQty.Text));
+                                    cmdInsert2.Parameters.AddWithValue("@Tablet", Convert.ToInt32(txtTablet.Text));
+                                    cmdInsert2.Parameters.AddWithValue("@Times", Convert.ToInt32(txtTimes.Text));
+                                    cmdInsert2.Parameters.AddWithValue("@PrescriptionID", prescriptionID);
+                                    cmdInsert2.Parameters.AddWithValue("@DrugID", "" + dtr5["DrugID"]);
+                                    dtr5.Close();
+                                    int n2 = cmdInsert2.ExecuteNonQuery();
+                                    if (n2 > 0)
+                                    {
+                                        MessageBox.Show("Prescription details added.", "INFORMATION", MessageBoxButtons.OK, MessageBoxIcon.Information);                                       
+                                    }
+                                    else
+                                    {
+                                        MessageBox.Show("Prescription details failed to be added.", "ERROR", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                                    }
+                                    //////////////////////update drug qty////////////////
+                                    string strUpdate = "";
+                                    SqlCommand cmdUpdate;
+                                    strUpdate = "UPDATE Drug SET DrugQty = DrugQty - '"+txtQty.Text+"' WHERE DrugName" +
+                                        " = '" + ddlMedicine.SelectedItem.Text + "'";
+                                    //-------------------------------------------------------------------------//
+                                    cmdUpdate = new SqlCommand(strUpdate, conResource);
+
+                                    int n3 = cmdUpdate.ExecuteNonQuery();
+                                    if (n3 > 0)
+                                    {
+                                        MessageBox.Show("Drug quantity is successfully updated.", "INFORMATION", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                                        
+                                        txtQty.Text = "";
+                                        txtTablet.Text = "";
+                                        txtTimes.Text = "";
+                                    }
+                                    else
+                                    {
+                                        MessageBox.Show("Drug quantity fail to be updated.", "ERROR", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                                    }
+                                    //////////check if drugstatus needs to be updated///////////
+                                    string strRetrieve2 = "";
+                                    SqlCommand cmdRetrieve2;
+                                    strRetrieve2 = "SELECT DrugQty FROM Drug WHERE DrugName = '" + ddlMedicine.SelectedItem.Text + "'";
+                                    cmdRetrieve2 = new SqlCommand(strRetrieve2, conResource);
+                                    SqlDataReader dtr2;
+                                    dtr2 = cmdRetrieve2.ExecuteReader();
+                                    if (dtr2.Read())
+                                    {
+                                        int qty = Convert.ToInt32(dtr2["DrugQty"]);
+                                        if (qty == 0)
+                                        {
+                                            dtr2.Close();
+                                            string strUpdate2 = "";
+                                            SqlCommand cmdUpdate2;
+                                            strUpdate2 = "UPDATE Drug SET DrugStatus = 'Not available' WHERE DrugName = '"+ddlMedicine.SelectedItem.Text+"'";
+                                            cmdUpdate2 =  new SqlCommand(strUpdate2, conResource);
+
+                                            int n4 = cmdUpdate2.ExecuteNonQuery();
+                                            if (n4 > 0)
+                                            {
+                                                MessageBox.Show("Qty = 0. DrugStatus is updated to not available.", "INFORMATION", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                                            }
+                                            else
+                                            {
+                                                MessageBox.Show("Qty = 0. DrugStatus fail to be updated to not available.", "ERROR", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                                            }
+                                        }
+                                    }
+                                    ddlMedicine.SelectedIndex = 0;
+                                }
+                            }                            
+                        }
+                    }                    
+                }
+                conResource.Close();
+            }                                
+        }
+    }
+}
